@@ -4,6 +4,8 @@ DEST=$1
 
 set -e
 
+export DEBUG=1
+
 bundle_test_integration() {
 	LDFLAGS="$LDFLAGS $LDFLAGS_STATIC" go_test_dir ./integration
 }

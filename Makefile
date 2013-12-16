@@ -16,6 +16,9 @@ docs:
 test: build
 	$(DOCKER_RUN_DOCKER) hack/make.sh test test-integration
 
+test-integration: build
+	$(DOCKER_RUN_DOCKER) hack/make.sh test-integration
+
 shell: build
 	$(DOCKER_RUN_DOCKER) bash
 

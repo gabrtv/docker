@@ -26,13 +26,15 @@ type buildFile struct {
 	srv     *Server
 
 	image        string
-	tags         []string
 	maintainer   string
 	config       *Config
 	context      string
 	verbose      bool
 	utilizeCache bool
 	rm           bool
+
+	repoName string
+	targets  map[string]string
 
 	tmpContainers map[string]struct{}
 	tmpImages     map[string]struct{}
@@ -56,7 +58,13 @@ func (b *buildFile) clearTmp(containers map[string]struct{}) {
 func (b *buildFile) CmdFrom(name string) error {
 	image, err := b.runtime.repositories.LookupImage(name)
 	if err != nil {
-		if b.runtime.graph.IsNotExist(err) {
+		if sourceImageId, exists := b.targets[name]; exists {
+			image, err = b.runtime.repositories.LookupImage(sourceImageId)
+			fmt.Printf("Loaded image from %s: %s", sourceImageId, image)
+			if err != nil {
+				return err
+			}
+		} else if b.runtime.graph.IsNotExist(err) {
 			remote, tag := utils.ParseRepositoryTag(name)
 			if err := b.srv.ImagePull(remote, tag, b.outOld, b.sf, nil, nil, true); err != nil {
 				return err
@@ -258,14 +266,27 @@ func (b *buildFile) CmdVolume(args string) error {
 	return nil
 }
 
-func (b *buildFile) CmdTag(tag string) error {
-	if tag == "" {
-		return fmt.Errorf("Tag cannot be empty")
+func (b *buildFile) CmdSave(target string) error {
+	if target == "" {
+		return fmt.Errorf("Save target cannot be empty")
 	}
-	b.tags = append(b.tags, tag)
-	if err := b.commit("", b.config.Cmd, fmt.Sprintf("TAG %s", tag)); err != nil {
-		return err
+	if b.repoName == "" {
+		return fmt.Errorf("Cannot save without repository name")
 	}
+
+	fmt.Fprintf(b.outStream, " ---> Saving %s\n", target)
+
+	b.targets[target] = b.image
+
+	// var targetRepo string
+	// if target == "." {
+	// 	targetRepo = b.repoName
+	// } else {
+	// 	targetRepo = b.repoName + target
+	// }
+	// repoName, tag := utils.ParseRepositoryTag(targetRepo)
+	// b.runtime.repositories.Set(repoName, tag, b.image, true)
+
 	return nil
 }
 
@@ -575,15 +596,31 @@ func (b *buildFile) Build(context io.Reader) (string, error) {
 		if b.rm {
 			b.clearTmp(b.tmpContainers)
 		}
+		// save target images if we were provided a repoName
+		if b.repoName != "" {
+			if len(b.targets) == 0 {
+				b.targets[b.repoName] = b.image
+			}
+			for target, imageId := range b.targets {
+				var targetRepo string
+				if target == "." {
+					targetRepo = b.repoName
+				} else {
+					targetRepo = b.repoName + target
+				}
+				utils.Debugf("tagging %s with %s", targetRepo, imageId)
+				repoName, tag := utils.ParseRepositoryTag(targetRepo)
+				b.runtime.repositories.Set(repoName, tag, imageId, false)
+			}
+		}
 		return b.image, nil
 	}
 	return "", fmt.Errorf("An error occurred during the build\n")
 }
 
-func NewBuildFile(srv *Server, outStream, errStream io.Writer, verbose, utilizeCache, rm bool, outOld io.Writer, sf *utils.StreamFormatter) BuildFile {
+func NewBuildFile(srv *Server, outStream, errStream io.Writer, verbose, utilizeCache, rm bool, outOld io.Writer, sf *utils.StreamFormatter, repoName string) BuildFile {
 	return &buildFile{
 		runtime:       srv.runtime,
-		tags:          []string{},
 		srv:           srv,
 		config:        &Config{},
 		outStream:     outStream,
@@ -595,5 +632,7 @@ func NewBuildFile(srv *Server, outStream, errStream io.Writer, verbose, utilizeC
 		rm:            rm,
 		sf:            sf,
 		outOld:        outOld,
+		repoName:      repoName,
+		targets:       make(map[string]string),
 	}
 }

@@ -118,7 +118,6 @@ func CreateBridgeIface(config *DaemonConfig) error {
 		"192.168.44.1/24",
 	}
 
-
 	nameservers := []string{}
 	resolvConf, _ := utils.GetResolvConf()
 	// we don't check for an error here, because we don't really care

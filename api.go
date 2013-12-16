@@ -894,7 +894,6 @@ func postBuild(srv *Server, version float64, w http.ResponseWriter, r *http.Requ
 	rawSuppressOutput := r.FormValue("q")
 	rawNoCache := r.FormValue("nocache")
 	rawRm := r.FormValue("rm")
-	repoName, tag := utils.ParseRepositoryTag(repoName)
 
 	var context io.Reader
 
@@ -962,17 +961,14 @@ func postBuild(srv *Server, version float64, w http.ResponseWriter, r *http.Requ
 			Writer:          utils.NewWriteFlusher(w),
 			StreamFormatter: sf,
 		},
-		!suppressOutput, !noCache, rm, utils.NewWriteFlusher(w), sf)
-	id, err := b.Build(context)
+		!suppressOutput, !noCache, rm, utils.NewWriteFlusher(w), sf, repoName)
+	_, err = b.Build(context)
 	if err != nil {
 		if sf.Used() {
 			w.Write(sf.FormatError(err))
 			return nil
 		}
 		return fmt.Errorf("Error build: %s", err)
-	}
-	if repoName != "" {
-		srv.runtime.repositories.Set(repoName, tag, id, false)
 	}
 	return nil
 }
