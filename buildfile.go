@@ -58,9 +58,9 @@ func (b *buildFile) clearTmp(containers map[string]struct{}) {
 func (b *buildFile) CmdFrom(name string) error {
 	image, err := b.runtime.repositories.LookupImage(name)
 	if err != nil {
+		// load image from the current save targets
 		if sourceImageId, exists := b.targets[name]; exists {
 			image, err = b.runtime.repositories.LookupImage(sourceImageId)
-			fmt.Printf("Loaded image from %s: %s", sourceImageId, image)
 			if err != nil {
 				return err
 			}
@@ -273,20 +273,9 @@ func (b *buildFile) CmdSave(target string) error {
 	if b.repoName == "" {
 		return fmt.Errorf("Cannot save without repository name")
 	}
-
 	fmt.Fprintf(b.outStream, " ---> Saving %s\n", target)
-
+	// write image ID to targets to be saved later
 	b.targets[target] = b.image
-
-	// var targetRepo string
-	// if target == "." {
-	// 	targetRepo = b.repoName
-	// } else {
-	// 	targetRepo = b.repoName + target
-	// }
-	// repoName, tag := utils.ParseRepositoryTag(targetRepo)
-	// b.runtime.repositories.Set(repoName, tag, b.image, true)
-
 	return nil
 }
 

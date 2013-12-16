@@ -636,21 +636,27 @@ func TestBuildSave(t *testing.T) {
 	defer nuke(mkRuntimeFromEngine(eng, t))
 	srv := mkServerFromEngine(eng, t)
 
+	sliceContains := func (list []string, s string) bool {
+	    for _, v := range list {
+	        if v == s {
+	            return true
+	        }
+	    }
+	    return false
+	}
+
 	template := testContextTemplate{`
 		from {IMAGE}
-		env BASE 1
-		entrypoint ["/bin/echo", "latest"]
+		entrypoint ["/bin/echo", "base"]
 		save .
 		from .
-		env BASE 2
 		env WEB 1
 		entrypoint ["/bin/echo", "web"]
-		save .web
+		save :web
 		from .
-		env BASE 3
 		env SHELL 1
 		cmd ["/bin/bash"]
-		save .bash
+		save :bash
         `,
 		nil, nil}
 
@@ -658,22 +664,48 @@ func TestBuildSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	// check the base image
 	baseImage, err := srv.ImageInspect("test-save")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("baseImage: %s", baseImage)
-
-	webImage, err := srv.ImageInspect("test-save.web")
+	if ! sliceContains(baseImage.Config.Entrypoint, "base") {
+		t.Fatalf("Incorrect entrypoint")
+	}
+	// check the web tag
+	webImage, err := srv.ImageInspect("test-save:web")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("webImage: %s", webImage)
-
-	shellImage, err := srv.ImageInspect("test-save.bash")
+	if len(webImage.Config.Env) != 3 {
+		t.Fatalf("Incorrect number of environment variables")	
+	}
+	for _, i := range []string{"WEB=1"} {
+		if ! sliceContains(webImage.Config.Env, i) {
+			t.Fatalf("Incorrect environment variable values")	
+		}
+	}
+	if ! sliceContains(webImage.Config.Entrypoint, "web") {
+		t.Fatalf("Incorrect entrypoint")
+	}
+	// check the shell tag
+	shellImage, err := srv.ImageInspect("test-save:bash")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("shellImage: %s", shellImage)
+	if len(shellImage.Config.Env) != 3 {
+		t.Fatalf("Incorrect number of environment variables")	
+	}
+	for _, i := range []string{"SHELL=1"} {
+		if ! sliceContains(shellImage.Config.Env, i) {
+			t.Fatalf("Incorrect environment variable values")	
+		}
+	}
+	if ! sliceContains(shellImage.Config.Entrypoint, "base") {
+		t.Fatalf("Incorrect entrypoint")
+	}
+	if ! sliceContains(shellImage.Config.Cmd, "/bin/bash") {
+		t.Fatalf("Incorrect command")
+	}
+
 }
