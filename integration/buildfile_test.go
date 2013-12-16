@@ -630,3 +630,27 @@ func TestBuildFails(t *testing.T) {
 		t.Fatalf("StatusCode %d unexpected, should be 23", sterr.Code)
 	}
 }
+
+func TestBuildTags(t *testing.T) {
+	eng := NewTestEngine(t)
+	defer nuke(mkRuntimeFromEngine(eng, t))
+
+	template := testContextTemplate{`
+		from {IMAGE}
+		entrypoint ["/bin/echo", "latest"]
+		tag :latest
+		from :latest
+		entrypoint ["/bin/echo", "web"]
+		tag :web
+		from :latest
+		cmd ["/bin/bash"]
+		tag :shell
+        `,
+		nil, nil}
+
+	img, err := buildImage(template, t, eng, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+    t.Logf("BuildTags Image ID: %s ", img.ID)
+}

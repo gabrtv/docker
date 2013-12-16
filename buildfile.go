@@ -26,6 +26,7 @@ type buildFile struct {
 	srv     *Server
 
 	image        string
+	tags         []string
 	maintainer   string
 	config       *Config
 	context      string
@@ -252,6 +253,17 @@ func (b *buildFile) CmdVolume(args string) error {
 		b.config.Volumes[v] = struct{}{}
 	}
 	if err := b.commit("", b.config.Cmd, fmt.Sprintf("VOLUME %s", args)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (b *buildFile) CmdTag(tag string) error {
+	if tag == "" {
+		return fmt.Errorf("Tag cannot be empty")
+	}
+	b.tags = append(b.tags, tag)
+	if err := b.commit("", b.config.Cmd, fmt.Sprintf("TAG %s", tag)); err != nil {
 		return err
 	}
 	return nil
@@ -571,6 +583,7 @@ func (b *buildFile) Build(context io.Reader) (string, error) {
 func NewBuildFile(srv *Server, outStream, errStream io.Writer, verbose, utilizeCache, rm bool, outOld io.Writer, sf *utils.StreamFormatter) BuildFile {
 	return &buildFile{
 		runtime:       srv.runtime,
+		tags:          []string{},
 		srv:           srv,
 		config:        &Config{},
 		outStream:     outStream,
