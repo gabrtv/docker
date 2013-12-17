@@ -892,6 +892,57 @@ func TestImagesTree(t *testing.T) {
 	})
 }
 
+func TestImagesTags(t *testing.T) {
+
+	tmpDir, err := ioutil.TempDir("", "project")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	dockerfile := path.Join(tmpDir, "Dockerfile")
+	template := `
+from {IMAGE}
+entrypoint ["/bin/echo", "base"]
+tag :latest
+from :latest
+env WEB 1
+entrypoint ["/bin/echo", "web"]
+tag :web
+from :latest
+env SHELL 1
+cmd ["/bin/bash"]
+tag :bash
+`
+	replacer := strings.NewReplacer("{IMAGE}", unitTestImageID)
+	contents := replacer.Replace(template)
+	ioutil.WriteFile(dockerfile, []byte(contents), 0x777)
+
+	cli := docker.NewDockerCli(nil, os.Stdout, ioutil.Discard, testDaemonProto, testDaemonAddr)
+	defer cleanup(globalEngine, t)
+
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		err := cli.CmdBuild("-t", "testing", tmpDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	setTimeout(t, "CmdBuild timed out", 10*time.Second, func() {
+		<-c
+	})
+
+	srv := mkServerFromEngine(globalEngine, t)
+	for _, name := range []string{"testing", "testing:web", "testing:bash"} {
+		_, err := srv.ImageInspect(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func buildTestImages(t *testing.T, eng *engine.Engine) *docker.Image {
 
 	var testBuilder = testContextTemplate{
@@ -905,11 +956,11 @@ run    [ "$(ls -d /var/run/sshd)" = "/var/run/sshd" ]
 		nil,
 		nil,
 	}
-	image, err := buildImage(testBuilder, t, eng, true)
+	images, err := buildImages(testBuilder, t, eng, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	image := images["latest"]
 	if err := eng.Job("tag", image.ID, "test").Run(); err != nil {
 		t.Fatal(err)
 	}
