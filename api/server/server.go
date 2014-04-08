@@ -29,6 +29,7 @@ import (
 	"github.com/dotcloud/docker/pkg/user"
 	"github.com/dotcloud/docker/pkg/version"
 	"github.com/dotcloud/docker/registry"
+	"github.com/dotcloud/docker/runconfig"
 	"github.com/dotcloud/docker/utils"
 	"github.com/gorilla/mux"
 )
@@ -393,20 +394,22 @@ func postCommit(eng *engine.Engine, version version.Version, w http.ResponseWrit
 		return err
 	}
 	var (
+		legacyconfig runconfig.Config
 		config       engine.Env
 		env          engine.Env
 		job          = eng.Job("commit", r.Form.Get("container"))
 		stdoutBuffer = bytes.NewBuffer(nil)
 	)
-	if err := config.Decode(r.Body); err != nil {
-		utils.Errorf("%s", err)
-	}
-
 	job.Setenv("repo", r.Form.Get("repo"))
 	job.Setenv("tag", r.Form.Get("tag"))
 	job.Setenv("author", r.Form.Get("author"))
 	job.Setenv("comment", r.Form.Get("comment"))
-	job.SetenvSubEnv("config", &config)
+	job.Setenv("changes", r.Form.Get("changes"))
+	// Prepend fields from legacy config object, for reverse compatibility.
+	if err := json.NewDecoder(r.Body).Decode(&legacyconfig); err != nil {
+		return err
+	}
+	job.Setenv("changes", legacyconfig.AsScript()+"\n"+job.Getenv("changes"))
 
 	job.Stdout.Add(stdoutBuffer)
 	if err := job.Run(); err != nil {
