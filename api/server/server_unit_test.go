@@ -7,7 +7,6 @@ import (
 	"github.com/dotcloud/docker/api"
 	"github.com/dotcloud/docker/engine"
 	"github.com/dotcloud/docker/runconfig"
-	"github.com/dotcloud/docker/utils"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,8 +14,7 @@ import (
 )
 
 func TestPostCommit(t *testing.T) {
-	eng := tmpEngine(t)
-	defer rmEngine(eng)
+	eng := engine.New()
 	var called bool
 	eng.Register("commit", func(job *engine.Job) engine.Status {
 		if job.Getenv("changes") != "user solomon\nentrypoint [\"awesome\",\"command\"]\nenv foo bar\nentrypoint echo" {

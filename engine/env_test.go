@@ -149,10 +149,7 @@ func TestExpand(t *testing.T) {
 	env.Set("foo", "bar")
 	env.Set("letters", "a", "b", "c", "d")
 	env.Set("empty", "")
-	result, err := env.Expand("foo=$foo, the last letter is $letters, empty:<$empty>\nnon-existent key: '$nonexistent'")
-	if err != nil {
-		t.Fatal(err)
-	}
+	result := env.Expand("foo=$foo, the last letter is $letters, empty:<$empty>\nnon-existent key: '$nonexistent'")
 	if result != "foo=bar, the last letter is d, empty:<>\nnon-existent key: ''" {
 		t.Fatalf("%v\n", result)
 	}

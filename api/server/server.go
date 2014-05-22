@@ -395,7 +395,6 @@ func postCommit(eng *engine.Engine, version version.Version, w http.ResponseWrit
 	}
 	var (
 		legacyconfig runconfig.Config
-		config       engine.Env
 		env          engine.Env
 		job          = eng.Job("commit", r.Form.Get("container"))
 		stdoutBuffer = bytes.NewBuffer(nil)
